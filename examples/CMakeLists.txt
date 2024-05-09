@@ -85,6 +85,7 @@ endfunction(buildExamples)
 
 set(EXAMPLES
 	bloom
+	btest
 	computecloth
 	computecullandlod
 	computeheadless
