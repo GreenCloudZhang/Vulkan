@@ -41,7 +41,7 @@ public:
 	} graphics;
 
 	// Resources for the compute part of the example
-	struct Compute {
+	struct Compute {//COMPUTE 和 GRAPHICS 录制在两个queue里
 		VkQueue queue{ VK_NULL_HANDLE };								// Separate queue for compute commands (queue family may differ from the one used for graphics)
 		VkCommandPool commandPool{ VK_NULL_HANDLE };					// Use a separate command pool (queue family may differ from the one used for graphics)
 		VkCommandBuffer commandBuffer{ VK_NULL_HANDLE };				// Command buffer storing the dispatch commands and barriers
@@ -53,6 +53,7 @@ public:
 		int32_t pipelineIndex{ 0 };										// Current image filtering compute pipeline index
 	} compute;
 
+	//QUAD RENDER VB/IB
 	vks::Buffer vertexBuffer;
 	vks::Buffer indexBuffer;
 	uint32_t indexCount{ 0 };
@@ -147,7 +148,7 @@ public:
 
 		// Transition image to the general layout, so we can use it as a storage image in the compute shader
 		VkCommandBuffer layoutCmd = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-		storageImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		storageImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;//USE BOTH IN COMPUTE AND GRAPHICS
 		vks::tools::setImageLayout(layoutCmd, storageImage.image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, storageImage.imageLayout);
 		vulkanDevice->flushCommandBuffer(layoutCmd, queue, true);
 
@@ -339,7 +340,7 @@ public:
 	}
 
 	// Prepare the graphics resources used to display the ray traced output of the compute shader
-	void prepareGraphics()
+	void prepareGraphics()//Prepare descriptorset and pipeline
 	{
 		// Create a semaphore for compute & graphics sync
 		VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();

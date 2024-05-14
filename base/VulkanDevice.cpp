@@ -451,6 +451,37 @@ namespace vks
 		flushCommandBuffer(copyCmd, queue);
 	}
 
+	void VulkanDevice::copyBufferForCompute(vks::Buffer* src, vks::Buffer* dst, VkQueue queue, VkBufferCopy* copyRegion, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
+	{
+		assert(dst->size <= src->size);
+		assert(src->buffer);
+		VkCommandBuffer copyCmd = createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+		VkBufferCopy bufferCopy{};
+		if (copyRegion == nullptr)
+		{
+			bufferCopy.size = src->size;
+		}
+		else
+		{
+			bufferCopy = *copyRegion;
+		}
+
+		vkCmdCopyBuffer(copyCmd, src->buffer, dst->buffer, 1, &bufferCopy);
+
+		VkBufferMemoryBarrier bufferBarrier = vks::initializers::bufferMemoryBarrier();
+		bufferBarrier.srcAccessMask = srcAccessMask;
+		bufferBarrier.dstAccessMask = dstAccessMask;
+		bufferBarrier.srcQueueFamilyIndex = queueFamilyIndices.graphics;
+		bufferBarrier.dstQueueFamilyIndex = queueFamilyIndices.compute;
+		bufferBarrier.size = VK_WHOLE_SIZE;
+		std::vector<VkBufferMemoryBarrier> bufferBarriers;
+		bufferBarrier.buffer = dst->buffer;
+		bufferBarriers.push_back(bufferBarrier);
+		vkCmdPipelineBarrier(copyCmd, srcStageMask, dstStageMask, VK_FLAGS_NONE, 0, nullptr, static_cast<uint32_t>(bufferBarriers.size()), bufferBarriers.data(), 0, nullptr);
+
+		flushCommandBuffer(copyCmd, queue);
+	}
+
 	/** 
 	* Create a command pool for allocation command buffers from
 	* 

@@ -117,6 +117,7 @@ set(EXAMPLES
 	hdr
 	imgui
 	indirectdraw
+	indirectdrawtest
 	inlineuniformblocks
 	inputattachments
 	instancing

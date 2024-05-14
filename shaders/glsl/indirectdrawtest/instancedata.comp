@@ -1,0 +1,40 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_scalar_block_layout : enable
+
+layout (local_size_x = 256, local_size_y = 1) in;
+layout (std430, binding = 0) buffer inputRandomBuffer
+{
+	vec4 randomData[];
+};
+struct Params{
+	float plantRadius;
+	uint objectInstanceCount;
+};
+struct InstanceData {
+	vec3 pos;	
+	float scale;
+	vec3 rot;
+	uint texIndex;
+};
+layout(std430, binding = 1)buffer instanceDataBuffer
+{
+	InstanceData instanceDataOut[];
+};
+
+layout(std430, binding = 2)buffer paramBuffer
+{
+	Params paramDataIn[];
+};
+
+void main()
+{	
+    vec4 rand = randomData[gl_GlobalInvocationID.x].rgba;//imageLoad(inputImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)).rgb;//random
+	float theta = rand.r*3.1415926*2;
+	float phi = acos(1-2*rand.g);
+    uint index = gl_GlobalInvocationID.x;
+	instanceDataOut[index].rot = vec3(0, 3.1415926*rand.b,0);
+	instanceDataOut[index].pos=vec3(sin(phi)*cos(theta),0,cos(phi))* paramDataIn[0].plantRadius;
+	instanceDataOut[index].scale = 1.0+rand.a*2.0;
+	instanceDataOut[index].texIndex = uint(gl_GlobalInvocationID.x / paramDataIn[0].objectInstanceCount);
+}

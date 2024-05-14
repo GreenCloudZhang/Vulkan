@@ -129,6 +129,7 @@ VkResult VulkanExampleBase::createInstance(bool enableValidation)
 		instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
 
+	//instanceExtensions.push_back(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME);
 	if (instanceExtensions.size() > 0)
 	{
 		instanceCreateInfo.enabledExtensionCount = (uint32_t)instanceExtensions.size();

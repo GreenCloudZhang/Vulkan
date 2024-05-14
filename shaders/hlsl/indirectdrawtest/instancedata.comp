@@ -1,0 +1,32 @@
+
+
+struct Params{
+	float plantRadius;
+	float objectInstanceCount;
+};
+struct InstanceData {
+	float3 pos;
+	float scale;
+	float3 rot;
+	uint texIndex;
+};
+[[vk::binding(0)]]
+RWStructuredBuffer<float4> randomBuffer;
+[[vk::binding(1)]]
+RWStructuredBuffer<InstanceData> instanceDataOut;
+[[vk::binding(2)]]
+RWStructuredBuffer<Params> paramBuffer;
+
+
+[numthreads(256,1,1)]
+void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
+{	
+    float4 rand = randomBuffer[GlobalInvocationID.x].rgba;//inputImage[uint2(GlobalInvocationID.x, GlobalInvocationID.y)].rgb;//random
+	float theta = rand.r*3.1415926*2;
+	float phi = acos(1-2*rand.g);
+    uint index = GlobalInvocationID.x;
+	instanceDataOut[index].rot = float3(0, 3.1415926*rand.b,0);
+	instanceDataOut[index].pos=float3(sin(phi)*cos(theta),0,cos(phi))* paramBuffer[0].plantRadius;
+	instanceDataOut[index].scale = 1.0+rand.a*2.0;
+	instanceDataOut[index].texIndex = (uint)(index / paramBuffer[0].objectInstanceCount);
+}
