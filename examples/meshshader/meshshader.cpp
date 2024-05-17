@@ -56,6 +56,7 @@ public:
 		enabledMeshShaderFeatures.taskShader = VK_TRUE;
 
 		deviceCreatepNextChain = &enabledMeshShaderFeatures;
+		enabledDeviceExtensions.push_back(VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
 	}
 
 	~VulkanExample()
@@ -173,10 +174,10 @@ public:
 		pipelineCI.pVertexInputState = nullptr;
 
 		// Instead of a vertex shader, we use a mesh and task shader
-		shaderStages[0] = loadShader(getShadersPath() + "meshshader/meshshader.mesh.spv", VK_SHADER_STAGE_MESH_BIT_EXT);
-		shaderStages[1] = loadShader(getShadersPath() + "meshshader/meshshader.task.spv", VK_SHADER_STAGE_TASK_BIT_EXT);
+		shaderStages[0] = loadShader(getShadersPath() + "meshshader/meshshaderAMDfont.mesh.spv", VK_SHADER_STAGE_MESH_BIT_EXT);
+		shaderStages[1] = loadShader(getShadersPath() + "meshshader/meshshaderAMDfont.task.spv", VK_SHADER_STAGE_TASK_BIT_EXT);
 
-		shaderStages[2] = loadShader(getShadersPath() + "meshshader/meshshader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+		shaderStages[2] = loadShader(getShadersPath() + "meshshader/meshshaderAMDfont.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline));
 	}
 

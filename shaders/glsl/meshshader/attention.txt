@@ -1,0 +1,1 @@
+mesh shader到fragment shader传递的vertex attribute中uint参数不能正常传递，float可以
