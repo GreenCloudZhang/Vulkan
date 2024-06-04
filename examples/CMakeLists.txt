@@ -159,6 +159,7 @@ set(EXAMPLES
 	sphericalenvmapping
 	ssao
 	stencilbuffer
+	stochasticfilter
 	subpasses
 	terraintessellation
 	tessellation
