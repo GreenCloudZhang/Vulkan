@@ -1,0 +1,6 @@
+
+####hlsl                                                                   #######glsl
+distance(vec a, vec b)                                              length(vec a - vec b)
+lerp                                                                          mix
+saturate(x)                                                               clamp(x, 0, 1)
+atan2(y, x)                                                                atan(y/x)
