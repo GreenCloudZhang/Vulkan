@@ -35,8 +35,8 @@ void main()
 	gl_Position = env_ubo.projection * env_ubo.view * env_ubo.model * inPos;
 
 	outPosWS = (env_ubo.model * inPos).xyz;
-	outNormalWS = normalize(mat3(transpose(inverse(env_ubo.model))) * inNormal);
-	outTangentWS = vec4(normalize(mat3(transpose(inverse(env_ubo.model))) * inTangent.xyz), inTangent.w);
+	outNormalWS = normalize(inNormal);//normalize(mat3(transpose(inverse(env_ubo.model))) * inNormal);
+	outTangentWS = vec4(inTangent.xyzw);//vec4(normalize(mat3(transpose(inverse(env_ubo.model))) * inTangent.xyz), inTangent.w);
 
 	//half3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;
 	//half3x3(tangent, binormal, normal)

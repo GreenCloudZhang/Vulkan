@@ -486,94 +486,69 @@ void EyeShading(vec3 positionWS, vec3 normalWS, vec3 viewDirectionWS, vec4 albed
 
 
 
+void main()
+{   
+    vec3 N = normalize(mat3(transpose(inverse(env_ubo.model))) * inNormalWS);
+	vec3 T = normalize(mat3(transpose(inverse(env_ubo.model))) * inTangentWS.xyz);
+    T = normalize(T-dot(T,N)*N);
+	vec3 B = normalize(cross(N, T))*inTangentWS.w;
+	mat3 TBN = transpose(mat3(T, B, N));
 
-void main() 
-{
-    //NORMAL TBN
-    vec3 normalTS = normalize(texture(normalMap, inUV).xyz * 2.0 - 1.0);
-	vec3 binormalWS = normalize(cross(inNormalWS, inTangentWS.xyz) * inTangentWS.w);
-	mat3 tangent2normal = mat3(normalize(inTangentWS.xyz), binormalWS, normalize(inNormalWS));
-	vec3 normalWS = normalize(tangent2normal * normalTS);
+	//NORMAL TBN
+	vec3 normalTS = normalize(texture(normalMap, inUV).xyz * 2.0 - 1.0);
+	//vec3 binormalWS = normalize(cross(inNormalWS, inTangentWS.xyz) * inTangentWS.w);
+	//mat3 tangent2normal = mat3(normalize(inTangentWS.xyz), binormalWS, normalize(inNormalWS));
+	vec3 normalWS = TBN * normalTS;
 
 	//VIEW
 	vec3 viewWS = normalize(env_ubo.cameraPosWS.xyz - inPosWS);
 
-	float internalIor=1.33;//index of refraction
+	float internalIor = 1.33;//index of refraction
+	vec2 uv = inUV;
 	float limbusUVWidth = eye_params.irisBorderWidth;
 	float depthScale = eye_params.refractionDepthScale;
 	float midPlaneDisplacement = texture(midPlaneDisplacementMap, inUV).r * 2.0f;
-	vec3 eyeDirectionWS = normalWS;
+	vec3 eyeDirectionWS = N;
 	float irisUVRadius = eye_params.irisUVRadius;
 
-    float depthPlaneOffset = texture(midPlaneDisplacementMap, vec2(irisUVRadius + 0.5, 0.5)).r * 2.0f;
-  
-    float pupilScale = eye_params.pupilScale;
-    float pupilShiftX = eye_params.pupilShift.x;
-    float pupilShiftY = eye_params.pupilShift.y;
+	float depthPlaneOffset = texture(midPlaneDisplacementMap, vec2(irisUVRadius + 0.5, 0.5)).r * 2.0f;
 
-    //Center the uv
-    float ScaleByCenter = 1.0;
-    vec2 CenterUV = (inUV / ScaleByCenter + 0.5) - (0.5 / ScaleByCenter);
+	float irisMask;
+	vec2 refractedUV;
+	EyeRefraction(internalIor, uv, limbusUVWidth, depthScale, depthPlaneOffset, midPlaneDisplacement, eyeDirectionWS, irisUVRadius, N, viewWS, inTangentWS.xyz, irisMask, refractedUV);
 
-    // Iris Mask with Limbus Ring falloff mask
-    vec2 UV = CenterUV - vec2(0.5f, 0.5f); //CenterUV - vec2(0.5f, 0.5f);
-    float m, r;
-    r = (length(UV) - (irisUVRadius - limbusUVWidth)) / limbusUVWidth;
-    m = clamp(1 - r, 0, 1);
-    m = smoothstep(0, 1, m);
+	float pupilScale = eye_params.pupilScale;
+	float pupilShiftX = eye_params.pupilShift.x;
+	float pupilShiftY = eye_params.pupilShift.y;
 
-    //Reflection direction
-    float airIoR = 1.00029;
-    float n = airIoR / internalIor;
-    float facing = dot(inNormalWS, viewWS);
-    float w = n * facing;
-    float k = sqrt(1 + (w - n) * (w + n));
-    vec3 t;
-    t = (w - k) * inNormalWS - n * viewWS;
-    t = -normalize(t);
+	vec2 scaledUV;
+	GetScaledUVByCenter(irisUVRadius, refractedUV, pupilScale, pupilShiftX, pupilShiftY, scaledUV);
 
-    float irisDepth = max(midPlaneDisplacement - depthPlaneOffset, 0) * depthScale;
-    float CosAlpha = dot(viewWS, normalWS);
-    float HeightW = irisDepth / mix(0.325, 1, CosAlpha * CosAlpha);
+	vec3 lerpSclera1A = pow(texture(scleraBaseMap, inUV).rgb * vec3(eye_params.scleraBrightness) * eye_params.scleraTint.rgb, vec3(eye_params.scleraPower));
+	vec3 lerpSclera1B = lerpSclera1A * eye_params.irisBleedTint.rgb;
+	vec3 lerpSclera2A = mix(lerpSclera1A, lerpSclera1B, irisMask);//irisBleed
+	vec3 lerpSclera2B = pow(texture(veinsBaseMap, inUV).rgb, vec3(eye_params.veinsPower));
 
-    vec3 ScaleDir = HeightW * t;
-    
-    vec3 EyeNormal = normalWS;
-    //Find tangent space Coordinate
-    vec3 EyeTangent = normalize(inTangentWS.xyz - (dot(inTangentWS.xyz, EyeNormal) * EyeNormal));
-    float TangentOffset = dot(EyeTangent, ScaleDir);
-    vec3 Binorm = cross(EyeNormal, EyeTangent);
-    float BinomOffset = dot(Binorm, ScaleDir);
-    vec2 RefractedUVOffset = vec2(TangentOffset, BinomOffset);
+	vec3 lerpAlbedoA = mix(lerpSclera2A, lerpSclera2B, eye_params.veinsOpacity);//add veinTex
 
-    //Combine the offset with Coord
-    vec2 ScaleOffset = vec2(-1, 1) * irisUVRadius * RefractedUVOffset;
-    vec2 RefractedUV = CenterUV + ScaleOffset;
-    RefractedUV = mix(CenterUV, RefractedUV, m.r);
-    
-    //Scale Iris texture Coordinates up by this amount before sampling iris
-    vec2 AjuastUV = (RefractedUV - 0.5) * (1 / (2 * irisUVRadius)) + 0.5;
+	vec3 irisDetail = texture(irisBaseMap, scaledUV).rgb * clamp(1.0 - pow(length((scaledUV - vec2(0.5)) * eye_params.limbusDarkScale), eye_params.limbusDarkPower), 0.0f, 1.0f);
+	vec3 irisAO = pow(texture(irisOcculusionMap, scaledUV).rgb, vec3(eye_params.aoInBaseColorPower));
 
-    //Scale the Pupil
-    // Scale UVs from from unit circle in or out from center
-    // vec2 UV, float PupilScale
-    vec2 UVcentered = AjuastUV - vec2(0.5f, 0.5f);
-    float UVlength = length(UVcentered);
-    // UV on circle at distance 0.5 from the center, in direction of original UV
-    vec2 UVmax = normalize(UVcentered) * 0.5f;
+	vec3 lerpAlbedoB;
+	Desaturation(irisDetail * irisAO, 1 - eye_params.irisSaturation, vec3(0.3, 0.59, 0.11), lerpAlbedoB);
 
-    vec2 UVscaled = mix(UVmax, vec2(0.f, 0.f), clamp((1.f - UVlength * 2.f) * pupilScale, 0, 1));
-    UVscaled += vec2(0.5f, 0.5f);
+	vec3 albedo = mix(lerpAlbedoA, lerpAlbedoB, irisMask);
+	float smoothness = 0.92f;
+	float metallic = 0.0f;
+	float occlusion = 1.0f;
 
-    vec3 irisRes = texture(irisBaseMap, UVscaled).rgb;
-    vec3 albedo = mix(texture(scleraBaseMap, inUV).xyz, irisRes, vec3(m));
+	vec4 highlightSampler = texture(highlightMap, CartesianToPolar(reflect(viewWS, N)));
+	vec3 decodeHighlightHDR = highlightSampler.xyz * highlightSampler.w * 6.0f;
+	vec4 highlight = vec4(decodeHighlightHDR * eye_params.highlightIntensity, 1.0);
 
-    float smoothness = 0.92f;
-    float metallic = 0.0f;
-    float occlusion = 1.0f;
+	//shading
+	vec3 shadingRes;
+	EyeShading(inPosWS, N, viewWS, vec4(albedo, 1.0), smoothness, metallic, occlusion, highlight, shadingRes);
 
-    vec3 shadingRes;
-    EyeShading(inPosWS, normalWS, viewWS, vec4(albedo, 1.0), smoothness, metallic, occlusion, vec4(0,0,0,0), shadingRes);
-
-	outFragColor = vec4(albedo, 1.0);	
+	outFragColor = vec4(shadingRes, 1.0);
 }

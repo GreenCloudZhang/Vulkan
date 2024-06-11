@@ -49,14 +49,16 @@ private:
 		if (matrices.view != currentMatrix) {
 			updated = true;
 		}
+		cameraPosFirstPerson = translation;
 	};
 public:
 	enum CameraType { lookat, firstperson };
-	CameraType type = CameraType::lookat;
+	CameraType type = CameraType::firstperson;
 
 	glm::vec3 rotation = glm::vec3();
 	glm::vec3 position = glm::vec3();
 	glm::vec4 viewPos = glm::vec4();
+	glm::vec3 cameraPosFirstPerson = glm::vec3();
 
 	float rotationSpeed = 1.0f;
 	float movementSpeed = 1.0f;
