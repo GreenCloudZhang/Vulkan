@@ -17,11 +17,31 @@ public:
 		glm::mat4 model;
 		glm::mat4 view;
 	} uniformData;
+	struct UniformGrassData {
+		glm::mat4 projection;
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::vec4 patchPosition_Spacing = glm::vec4(0,0.5,0,0.24);
+		glm::vec4 patchNormal_Height = glm::vec4(0, -1, 0, 0.8);//normal eg. 0,-1,0  0.8
+		glm::vec4 cullingCameraPosition_Time = glm::vec4(0, 0, 5, 0);//0,0,5
+		glm::vec4 windParams = glm::vec4(1.5f, 0.1f, 0.f, 0.f);
+	} uniformGrassData;
 	vks::Buffer uniformBuffer;
+	vks::Buffer uniformGrassBuffer;
+
+	bool normalState = false;
+	bool AMDFontState = false;
+	bool GrassRenderState = true;
+
+	float mTime = 0.0;
 
 	uint32_t indexCount{ 0 };
 
-	VkPipeline pipeline{ VK_NULL_HANDLE };
+	struct Pipelines {
+		VkPipeline normalPipeline{ VK_NULL_HANDLE };
+		VkPipeline AMDFontPipeline{ VK_NULL_HANDLE };
+		VkPipeline grassPipeline{ VK_NULL_HANDLE };
+	}pipeline;
 	VkPipelineLayout pipelineLayout{ VK_NULL_HANDLE };
 	VkDescriptorSet descriptorSet{ VK_NULL_HANDLE };
 	VkDescriptorSetLayout descriptorSetLayout{ VK_NULL_HANDLE };
@@ -34,7 +54,7 @@ public:
 	{
 		title = "Mesh shaders";
 		timerSpeed *= 0.25f;
-		camera.type = Camera::CameraType::lookat;
+		camera.type = Camera::CameraType::firstperson;
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 512.0f);
 		camera.setRotation(glm::vec3(0.0f, 15.0f, 0.0f));
 		camera.setTranslation(glm::vec3(0.0f, 0.0f, -5.0f));
@@ -62,10 +82,13 @@ public:
 	~VulkanExample()
 	{
 		if (device) {
-			vkDestroyPipeline(device, pipeline, nullptr);
+			vkDestroyPipeline(device, pipeline.normalPipeline, nullptr);
+			vkDestroyPipeline(device, pipeline.AMDFontPipeline, nullptr);
+			vkDestroyPipeline(device, pipeline.grassPipeline, nullptr);
 			vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 			vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 			uniformBuffer.destroy();
+			uniformGrassBuffer.destroy();
 		}
 	}
 
@@ -102,7 +125,12 @@ public:
 
 			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
 
-			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+			if(normalState)
+				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.normalPipeline);
+			else if(AMDFontState)
+				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.AMDFontPipeline);
+			else
+				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.grassPipeline);
 
 			// Use mesh and task shader to draw the scene
 			vkCmdDrawMeshTasksEXT(drawCmdBuffers[i], 1, 1, 1);
@@ -137,6 +165,12 @@ public:
 		std::vector<VkWriteDescriptorSet> modelWriteDescriptorSets = {
 			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBuffer.descriptor),
 		};
+		if (GrassRenderState)
+		{
+			modelWriteDescriptorSets = {
+			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformGrassBuffer.descriptor),
+			};
+		}
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(modelWriteDescriptorSets.size()), modelWriteDescriptorSets.data(), 0, nullptr);
 	}
 
@@ -148,10 +182,10 @@ public:
 
 		// Pipeline
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vks::initializers::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
-		VkPipelineRasterizationStateCreateInfo rasterizationState = vks::initializers::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE, 0);
+		VkPipelineRasterizationStateCreateInfo rasterizationState = vks::initializers::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 		VkPipelineColorBlendAttachmentState blendAttachmentState = vks::initializers::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 		VkPipelineColorBlendStateCreateInfo colorBlendState = vks::initializers::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
-		VkPipelineDepthStencilStateCreateInfo depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+		VkPipelineDepthStencilStateCreateInfo depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(VK_FALSE, VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
 		VkPipelineViewportStateCreateInfo viewportState = vks::initializers::pipelineViewportStateCreateInfo(1, 1, 0);
 		VkPipelineMultisampleStateCreateInfo multisampleState = vks::initializers::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
 		std::vector<VkDynamicState> dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
@@ -174,11 +208,26 @@ public:
 		pipelineCI.pVertexInputState = nullptr;
 
 		// Instead of a vertex shader, we use a mesh and task shader
-		shaderStages[0] = loadShader(getShadersPath() + "meshshader/meshshaderAMDfont.mesh.spv", VK_SHADER_STAGE_MESH_BIT_EXT);
-		shaderStages[1] = loadShader(getShadersPath() + "meshshader/meshshaderAMDfont.task.spv", VK_SHADER_STAGE_TASK_BIT_EXT);
+		shaderStages[0] = loadShader(getShadersPath() + "meshshader/grassmeshshader.mesh.spv", VK_SHADER_STAGE_MESH_BIT_EXT);
+		shaderStages[1] = loadShader(getShadersPath() + "meshshader/grassmeshshader.task.spv", VK_SHADER_STAGE_TASK_BIT_EXT);
 
-		shaderStages[2] = loadShader(getShadersPath() + "meshshader/meshshaderAMDfont.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline));
+		shaderStages[2] = loadShader(getShadersPath() + "meshshader/grassmeshshader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline.normalPipeline));
+
+		shaderStages[0] = loadShader(getShadersPath() + "meshshader/grassmeshshader.mesh.spv", VK_SHADER_STAGE_MESH_BIT_EXT);
+		shaderStages[1] = loadShader(getShadersPath() + "meshshader/grassmeshshader.task.spv", VK_SHADER_STAGE_TASK_BIT_EXT);
+
+		shaderStages[2] = loadShader(getShadersPath() + "meshshader/grassmeshshader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline.AMDFontPipeline));
+
+		shaderStages[0] = loadShader(getShadersPath() + "meshshader/grassmeshshader.mesh.spv", VK_SHADER_STAGE_MESH_BIT_EXT);
+		shaderStages[1] = loadShader(getShadersPath() + "meshshader/grassmeshshader.task.spv", VK_SHADER_STAGE_TASK_BIT_EXT);
+
+		shaderStages[2] = loadShader(getShadersPath() + "meshshader/grassmeshshader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline.grassPipeline));
 	}
 
 	// Prepare and initialize uniform buffer containing shader uniforms
@@ -186,6 +235,8 @@ public:
 	{
 		VK_CHECK_RESULT(vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformBuffer, sizeof(UniformData)));
 		VK_CHECK_RESULT(uniformBuffer.map());
+		VK_CHECK_RESULT(vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformGrassBuffer, sizeof(UniformGrassData)));
+		VK_CHECK_RESULT(uniformGrassBuffer.map());
 		updateUniformBuffers();
 	}
 
@@ -195,6 +246,12 @@ public:
 		uniformData.view = camera.matrices.view;
 		uniformData.model = glm::mat4(1.0f);
 		memcpy(uniformBuffer.mapped, &uniformData, sizeof(UniformData));
+
+		uniformGrassData.projection = camera.matrices.perspective;
+		uniformGrassData.view = camera.matrices.view;
+		uniformGrassData.model = glm::mat4(1.0f);
+		uniformGrassData.cullingCameraPosition_Time = glm::vec4(-camera.position.x, -camera.position.y, -camera.position.z, mTime);
+		memcpy(uniformGrassBuffer.mapped, &uniformGrassData, sizeof(UniformGrassData));
 	}
 
 	void draw()
@@ -222,10 +279,71 @@ public:
 
 	virtual void render()
 	{
+		mTime += 0.016f;
 		if (!prepared)
 			return;
 		updateUniformBuffers();
 		draw();
+	}
+
+	virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay)
+	{
+		if (overlay->header("Settings")) {
+			bool normalState = true;
+			bool AMDFontState = false;
+			bool GrassRenderState = false;
+			if (overlay->checkBox("normalState", &normalState)) {
+				if (normalState)
+				{
+					AMDFontState = false;
+					GrassRenderState = false;
+				}
+				else
+				{
+					if (!AMDFontState && !GrassRenderState)
+						normalState = true;
+				}
+				buildCommandBuffers();
+			}
+			if (overlay->checkBox("AMDFontState", &AMDFontState)) {
+				if (AMDFontState)
+				{
+					normalState = false;
+					GrassRenderState = false;
+				}
+				else
+				{
+					if (!normalState && !GrassRenderState)
+						normalState = true;
+				}
+				buildCommandBuffers();
+			}
+			if (overlay->checkBox("GrassRenderState", &GrassRenderState)) {
+				if (GrassRenderState)
+				{
+					normalState = false;
+					AMDFontState = false;
+				}
+				else
+				{
+					if (!normalState && !AMDFontState)
+						normalState = true;
+				}
+				buildCommandBuffers();
+			}
+			if (overlay->inputFloat("Grass spacing", &uniformGrassData.patchPosition_Spacing.w, 0.01f, 3)) {
+				updateUniformBuffers();
+			}
+			if (overlay->inputFloat("Grass height", &uniformGrassData.patchNormal_Height.w, 0.01f, 3)) {
+				updateUniformBuffers();
+			}
+			if (overlay->inputFloat("Wind Direction", &uniformGrassData.windParams.x, 0.01f, 3)) {
+				updateUniformBuffers();
+			}
+			if (overlay->inputFloat("Wind Force Scale", &uniformGrassData.windParams.y, 0.01f, 3)) {
+				updateUniformBuffers();
+			}
+		}
 	}
 };
 

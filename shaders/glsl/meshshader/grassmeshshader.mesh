@@ -1,0 +1,256 @@
+/* Copyright (c) 2021, Sascha Willems
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#version 450
+#extension GL_EXT_mesh_shader : require
+
+const int GROUP_SIZE=128;
+const int GRASS_VERT_COUNT=256;
+const int GRASS_PRIM_COUNT=192;
+const int GRASS_END_DISTANCE=8;
+
+const vec3 arg_patch_position = vec3(0,0,0);
+const vec3 arg_patch_normal = vec3(0,1,0);
+const float arg_grassspacing = 0.2;
+
+const vec4[8] positions = {
+    vec4( -0.2, 0.2, 0.0, 1.0),
+	vec4( 0.2, 0.2, 0.0, 1.0),
+	vec4(-0.4, -0.2, 0.0, 1.0),
+	vec4( 0, -0.2, 0.0, 1.0),
+	vec4( -0.6, -0.6, 0.0, 1.0),
+	vec4( -0.2, -0.6, 0.0, 1.0),
+	vec4(-0.8, -1.0, 0.0, 1.0),
+	vec4( -0.4, -1.0, 0.0, 1.0),
+};
+
+layout (binding = 0) uniform UBO 
+{
+	mat4 projection;
+	mat4 model;
+	mat4 view;
+	vec4 patchPosition_Spacing;
+	vec4 patchNormal_Height;//normal eg. 0,-1,0  0.8
+	vec4 cullingCameraPosition_Time;//0,0,5
+	vec4 windParams;//x windDirection y animationScale
+}arguments;
+
+layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = GRASS_VERT_COUNT, max_primitives = GRASS_PRIM_COUNT) out;
+
+layout(location = 0) out VertexOutput
+{
+	vec4 positionWS_RootHeight;//rgbpositionWS  w:rootHeight
+	vec4 normalWS_Height;
+	vec4 groundNormalWS;
+} vertexOutput[];
+
+//one grass means one blade
+//one group generate blade inside sphere 
+
+int CombineSeed(uint a, uint b)
+{
+    return int(a << 16 + b); 
+}
+
+int rand(int x)
+{
+    x+=2739110765;
+	// Generated using https://github.com/skeeto/hash-prospector
+	// Estimated Bias ~583
+	x *= 0x92955555;
+	x ^= x >> 15;
+	return x;
+}
+
+float rand(int seed, int index)
+{
+    index += seed; // randomize the index by our seed (pushes bits toward the left)
+	index ^= index * 0x9c117646;
+	index ^= index * 0xe0705d72;
+	float r = (bitfieldReverse(index) >> 8) * 5.96046447754e-08; // * 2^-24
+	return r;
+}
+
+//return rand v  0-c
+float rand0(int seed, int index, int c)
+{
+    index += seed; // randomize the index by our seed (pushes bits toward the left)
+	index ^= index * 0x9c117646;
+	index ^= index * 0xe0705d72;
+	float r = (bitfieldReverse(index) >> 8) * 5.96046447754e-08; // * 2^-24
+	return r*c;
+}
+
+//return rand v  0-c
+float rand(int seed, int index, int c)
+{
+    index += seed; // randomize the index by our seed (pushes bits toward the left)
+	index ^= index * 0x9c117646;
+	index ^= index * 0xe0705d72;
+	float r = (bitfieldReverse(index) >> 8) * 5.96046447754e-08; // * 2^-24
+	return float(c*0.5) + float(c);
+}
+
+void MakePersistentLength(inout vec3 p0, inout vec3 p1, inout vec3 p2, float height)
+{
+    vec3 v01 = p1-p0;
+	vec3 v02 = p2-p1;
+	float l01 = length(v01);
+	float l12 = length(v02);
+	float l02 = length(p2-p0);
+	float L = (2 * l02 + l01 + l12)/3.0;
+	float diff = height / L;
+	p1 += v01*diff;
+	p2 += v02*diff;
+}
+
+int tsign(uint gtid, uint id)
+{
+return (gtid & (1 << id)) != 0 ? 1:-1;
+}
+
+vec3 Bezier(vec3 p0, vec3 p1, vec3 p2, float t)
+{
+vec3 a = mix(p0,p1,t);
+vec3 b = mix(p1,p2,t);
+return mix(a,b,t);
+}
+
+vec3 BezierDerivative(vec3 p0, vec3 p1, vec3 p2, float t)
+{
+return 2.0 * (1.0 - t)*(p1-p0)+2.0*t*(p2-p1);
+}
+
+float Noise2D(vec2 pos)
+{
+	return (fract(sin(dot(pos, vec2(12.9898, 78.233))) * 43758.5453)*2.0f-1.0f);
+}
+
+vec3 GetWindOffset(vec2 pos, float time, float windDirection, float animationScale)//alpha
+{
+float posOnSineWave = cos(windDirection)*pos.x-sin(windDirection)*pos.y;
+float t = time+posOnSineWave+4*Noise2D(0.1*pos);
+float windX = 2 * sin(0.5*t);
+float windY = 1 * sin(1.f*t);
+return animationScale * vec3(windY, 0, windX);
+}
+
+struct Vertex
+{
+vec4 posCS;
+vec3 posWS;
+vec3 normalWS;
+float rootHeight;
+float height;
+vec3 groundNormalWS;//0 -1 0
+};
+
+#define PI 3.1415926
+
+//WorldSpace
+//->x right
+//| y down
+//  z outside screen
+
+//one group : one patch
+//one thread of group : one blade
+void main()
+{
+	uint gtid = gl_LocalInvocationID.x;
+	uint gid = gl_WorkGroupID.x;
+	mat4 mv = arguments.projection * arguments.view;// * ubo.model;
+
+	const int verticesPerBladeEdge = 4;
+	const int verticesPerBlade = 2 * verticesPerBladeEdge;
+	const int trianglesPerBlade = 6;
+	const int maxBladeCount = 32;
+
+	const vec3 patchCenter = arguments.patchPosition_Spacing.xyz;
+	const vec3 patchNormal = arguments.patchNormal_Height.xyz;//ground normal
+	const float spacing = arguments.patchPosition_Spacing.w;//0.4
+	const int seed = CombineSeed(uint(int(patchCenter.z/spacing)), uint(int(patchCenter.x/spacing)));
+
+	float distanceToCamera = length(arguments.patchPosition_Spacing.xyz - arguments.cullingCameraPosition_Time.xyz);
+	float bladeCountF = mix(float(maxBladeCount), 2.0, pow(clamp(distanceToCamera/(GRASS_END_DISTANCE * 1.05),0,1),0.75));
+
+    int bladeCount = int(floor(bladeCountF));
+	const int vertexCount = bladeCount * verticesPerBlade;
+	const int triangleCount = bladeCount * trianglesPerBlade;
+
+	SetMeshOutputsEXT(vertexCount, triangleCount);//3 vertexCount 1 primitivesCount
+	for(uint i=0;i<2;i++)
+	{
+	    int vertId = int(gtid + GROUP_SIZE * i);
+		if(vertId >= vertexCount)break;
+		int bladeId = vertId / verticesPerBlade;
+		int vertIdLocal = vertId % verticesPerBlade;
+
+		const float height = arguments.patchNormal_Height.w + float(rand(seed, bladeId, 20))/40.f;
+		vec3 tangent = normalize(cross(vec3(1,0,0), patchNormal));
+		vec3 bitangent = normalize(cross(patchNormal, tangent));
+
+		float bladeDirectionAngle = 2.f * PI * rand0(seed, 4, bladeId);// grass face
+		vec2 bladeDirection = vec2(cos(bladeDirectionAngle),sin(bladeDirectionAngle));
+
+		float offsetAngle = 2.f * PI * rand(seed, bladeId);//give position in patch
+		float offsetRadius = spacing * sqrt(rand(seed, 19, bladeId));
+		vec3 bladeOffset = offsetRadius * (cos(offsetAngle)*tangent + sin(offsetAngle)*bitangent);
+
+		vec3 p0 = patchCenter + bladeOffset;
+		vec3 p1 = p0 + vec3(0,-height,0);
+		vec3 p2 = p1 + vec3(bladeDirection.x, -1, bladeDirection.y) * height * 0.3;
+
+		p2 += GetWindOffset(p0.zx, arguments.cullingCameraPosition_Time.w,arguments.windParams.x,arguments.windParams.y);
+
+		MakePersistentLength(p0, p1, p2, height);
+
+		float width = 0.03f;
+		width *= maxBladeCount / bladeCountF;
+		if(bladeId==(bladeCount-1))
+		{
+		    width *= fract(bladeCountF);
+		}
+
+		Vertex vertex;
+		vertex.height = arguments.patchNormal_Height.w;
+		vertex.groundNormalWS = arguments.patchNormal_Height.xyz;
+		vertex.rootHeight = -p0.y;
+
+		vec3 sideVec = normalize(vec3(-bladeDirection.x, 0, bladeDirection.y));
+		vec3 offset = tsign(vertIdLocal, 0)*width *sideVec;//odd or not
+
+		//blade: higher is narrower
+		p0+=offset*1.0;
+		p1+=offset*0.7;
+		p2+=offset*0.3;
+
+		float t = (vertIdLocal/2)/float(verticesPerBladeEdge-1);
+		vertex.posWS = Bezier(p0,p1,p2,t);
+		vertex.normalWS = cross(sideVec, normalize(BezierDerivative(p0,p1,p2,t)));
+		//vertex.posCS = (mv*vec4(vertex.posWS,1.0)).xyz;
+
+		gl_MeshVerticesEXT[vertId].gl_Position = mv*vec4(vertex.posWS,1.0);
+		vertexOutput[vertId].positionWS_RootHeight = vec4(vertex.posWS, vertex.rootHeight);
+	    vertexOutput[vertId].normalWS_Height = vec4(vertex.normalWS, vertex.height);
+	    vertexOutput[vertId].groundNormalWS = vec4(vertex.groundNormalWS, 1.0);
+	}
+
+	for (uint i = 0; i < 2; ++i){
+        int triId = int(gtid + GROUP_SIZE * i);
+
+        if (triId >= triangleCount) break;
+
+        int bladeId    = triId / trianglesPerBlade;
+        int triIdLocal = triId % trianglesPerBlade;
+
+        int offset = bladeId * verticesPerBlade + 2 * (triIdLocal / 2);
+
+        uvec3 triangleIndices = (triIdLocal & 1) == 0? uvec3(0, 1, 2) : uvec3(3, 2, 1);
+
+        gl_PrimitiveTriangleIndicesEXT[triId] = uvec3(offset,offset,offset) + triangleIndices;
+    }   
+}

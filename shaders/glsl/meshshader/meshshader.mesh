@@ -28,6 +28,11 @@ const vec4[3] positions = {
 	vec4( 1.0,  1.0, 0.0, 1.0)
 };
 
+//WorldSpace
+//->x right
+//| y down
+//  z outside screen
+
 const vec4[3] colors = {
 	vec4(0.0, 1.0, 0.0, 1.0),
 	vec4(0.0, 0.0, 1.0, 1.0),

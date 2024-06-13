@@ -1,1 +1,1 @@
-glslang.exe -V --glsl-version 460 --target-env spirv1.6 D:\CodeRepo\vulkanSamplers\Vulkan\shaders\glsl\meshshader\meshshaderAMDfont.task -o D:\CodeRepo\vulkanSamplers\Vulkan\shaders\glsl\meshshader\meshshaderAMDfont.task.spv
+glslang.exe -V --glsl-version 460 --target-env spirv1.4 D:\CodeRepo\vulkanSamplers\Vulkan\shaders\glsl\meshshader\meshshaderAMDfont.task -o D:\CodeRepo\vulkanSamplers\Vulkan\shaders\glsl\meshshader\meshshaderAMDfont.task.spv

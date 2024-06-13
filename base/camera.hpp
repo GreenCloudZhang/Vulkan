@@ -60,8 +60,8 @@ public:
 	glm::vec4 viewPos = glm::vec4();
 	glm::vec3 cameraPosFirstPerson = glm::vec3();
 
-	float rotationSpeed = 1.0f;
-	float movementSpeed = 1.0f;
+	float rotationSpeed = 0.2f;
+	float movementSpeed = 0.2f;
 
 	bool updated = true;
 	bool flipY = false;
