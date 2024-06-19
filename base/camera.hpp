@@ -16,6 +16,7 @@ class Camera
 {
 private:
 	float fov;
+	float aspect;
 	float znear, zfar;
 
 	void updateViewMatrix()
@@ -93,10 +94,20 @@ public:
 		return zfar;
 	}
 
+	float getFOV() {
+		return fov;
+	}
+
+	float getAspect()
+	{
+		return aspect;
+	}
+
 	void setPerspective(float fov, float aspect, float znear, float zfar)
 	{
 		glm::mat4 currentMatrix = matrices.perspective;
 		this->fov = fov;
+		this->aspect = aspect;
 		this->znear = znear;
 		this->zfar = zfar;
 		matrices.perspective = glm::perspective(glm::radians(fov), aspect, znear, zfar);

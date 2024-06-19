@@ -162,6 +162,7 @@ set(EXAMPLES
 	stencilbuffer
 	stochasticfilter
 	subpasses
+	surfacescattering
 	terraintessellation
 	tessellation
 	textoverlay
