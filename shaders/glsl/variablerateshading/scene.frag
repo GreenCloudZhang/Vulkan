@@ -70,9 +70,9 @@ void main()
 
 		if (v == 1 && h == 1) { outFragColor *= vec4(0.0, 0.8, 0.4, 1.0); return; }
 
-		if (v == 2 && h == 1) { outFragColor *= vec4(0.2, 0.6, 1.0, 1.0); return; }
+		if (v == 2 && h == 1) { outFragColor *= vec4(0.2, 0.6, 1.0, 1.0); return; }//fragment size w=2 h=1
 
-		if (v == 1 && h == 2) { outFragColor *= vec4(0.0, 0.4, 0.8, 1.0); return; }
+		if (v == 1 && h == 2) { outFragColor *= vec4(0.0, 0.4, 0.8, 1.0); return; }//fragment size w=1 h=2
 
 		if (v == 2 && h == 2) { outFragColor *= vec4(1.0, 1.0, 0.2, 1.0); return; }
 

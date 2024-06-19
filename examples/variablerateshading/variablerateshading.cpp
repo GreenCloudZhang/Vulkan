@@ -252,6 +252,8 @@ void VulkanExample::buildCommandBuffers()
 		VkExtent2D fragmentSize = { 1, 1 };
 		VkFragmentShadingRateCombinerOpKHR combinerOps[2];
 		// The combiners determine how the different shading rate values for the pipeline, primitives and attachment are combined
+		// combinerOps[0] drawcall and primitives 
+		// combinerOps[1] fragment
 		if (enableShadingRate)
 		{
 			// If shading rate from attachment is enabled, we set the combiner, so that the values from the attachment are used
@@ -420,6 +422,11 @@ void VulkanExample::prepareShadingRateImage()
 		patternLookup[currentRange] = rate_v | rate_h;
 		currentRange += range;
 	}
+	//FLAG
+	//0001 vertical2  fragment with 2 vertical pixels
+	//0010 vertical4
+	//0100 horizontal2
+	//1000 horizontal4
 
 	uint8_t* ptrData = shadingRatePatternData;
 	for (uint32_t y = 0; y < imageExtent.height; y++) {
