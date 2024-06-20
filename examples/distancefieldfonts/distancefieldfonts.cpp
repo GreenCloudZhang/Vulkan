@@ -63,7 +63,7 @@ public:
 		glm::mat4 modelView;
 		// Font display options
 		glm::vec4 outlineColor{ 1.0f, 0.0f, 0.0f, 0.0f };
-		float outlineWidth{ 0.6f };
+		float outlineWidth{ 0.6f };// 
 		float outline{ true };
 	} uniformData;
 	vks::Buffer uniformBuffer;
@@ -144,7 +144,7 @@ public:
 			std::string info;
 			lineStream >> info;
 
-			if (info == "char")
+			if (info == "char")//TAG
 			{
 				// char id
 				uint32_t charid = nextValuePair(&lineStream);
@@ -196,7 +196,7 @@ public:
 			VkViewport viewport = vks::initializers::viewport((float)width, (splitScreen) ? (float)height / 2.0f : (float)height, 0.0f, 1.0f);
 			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
 
-			VkRect2D scissor = vks::initializers::rect2D(width, height, 0, 0);
+			VkRect2D scissor = vks::initializers::rect2D(width, (splitScreen) ? (float)height / 2.0f : (float)height, 0, 0);
 			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
 
 			VkDeviceSize offsets[1] = { 0 };
@@ -212,7 +212,9 @@ public:
 			if (splitScreen)
 			{
 				viewport.y = (float)height / 2.0f;
+				scissor.offset.y = (float)height / 2.0f;
 				vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
+				vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
 				vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets.bitmap, 0, NULL);
 				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.bitmap);
 				vkCmdDrawIndexed(drawCmdBuffers[i], indexCount, 1, 0, 0, 0);
@@ -246,7 +248,7 @@ public:
 				charInfo->width = 36;
 
 			float charw = ((float)(charInfo->width) / 36.0f);
-			float dimx = 1.0f * charw;
+			float dimx = 1.0f * charw;//samle font texture to screen scale
 			float charh = ((float)(charInfo->height) / 36.0f);
 			float dimy = 1.0f * charh;
 
@@ -255,7 +257,7 @@ public:
 			float ts = charInfo->y / w;
 			float te = (charInfo->y + charInfo->height) / w;
 
-			float xo = charInfo->xoffset / 36.0f;
+			float xo = charInfo->xoffset / 36.0f;//Space between Font and Font 
 			float yo = charInfo->yoffset / 36.0f;
 
 			posy = yo;
@@ -455,6 +457,9 @@ public:
 			if (overlay->checkBox("Splitscreen", &splitScreen)) {
 				camera.setPerspective(splitScreen ? 30.0f : 45.0f, (float)width / (float)(height * ((splitScreen) ? 0.5f : 1.0f)), 1.0f, 256.0f);
 				buildCommandBuffers();
+			}
+			if (overlay->inputFloat("fontWidth", &uniformData.outlineWidth, 0.1f, 2)) {
+				updateUniformBuffers();
 			}
 		}
 	}

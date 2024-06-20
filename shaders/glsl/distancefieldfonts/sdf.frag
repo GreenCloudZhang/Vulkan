@@ -18,14 +18,14 @@ layout (location = 0) out vec4 outFragColor;
 void main() 
 {
     float distance = texture(samplerColor, inUV).a;
-    float smoothWidth = fwidth(distance);	
+    float smoothWidth = fwidth(distance);//fwidth = abs(ddx(distance)+ddy(distance))	
     float alpha = smoothstep(0.5 - smoothWidth, 0.5 + smoothWidth, distance);
 	vec3 rgb = vec3(alpha);
 									 
 	if (ubo.outline > 0.0) 
 	{
 		float w = 1.0 - ubo.outlineWidth;
-		alpha = smoothstep(w - smoothWidth, w + smoothWidth, distance);
+		alpha = smoothstep(w - smoothWidth, w + smoothWidth, distance);//while outlineWidth < 0.5 there is no outline
         rgb += mix(vec3(alpha), ubo.outlineColor.rgb, alpha);
     }									 
 									 
