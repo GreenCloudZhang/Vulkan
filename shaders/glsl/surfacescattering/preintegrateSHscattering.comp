@@ -1,0 +1,85 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 1) in;
+
+layout (binding = 0) uniform UBO 
+{
+	vec4 d_steps;//xyz: d  w:integrate steps
+	vec4 texSize;//1/w, 1/h, w, h
+} params;
+
+layout (binding = 1, rgba8) uniform image2D resultImage1;
+layout (binding = 2, rgba8) uniform image2D resultImage2;
+
+#define PI  3.1415926535897932384626433832795
+#define PI_HALF PI/2
+#define EPSILON 0.000001
+
+struct sResult
+{
+	vec3 r;
+	vec3 g;
+	vec3 b;
+};
+
+void CalcStep(float r, float b, inout sResult res)
+{
+	float cosb=cos(b);
+	float sinb=sin(b);
+
+	//float costx = max(ndotl*cosx-sint*sinx, 0);//cos(t+x)//Here use cosb replace costx
+    float sinb_half = sin(b/2);
+	float cosb_half = cos(b/2);
+
+	vec3 exponent = -vec3(2*sinb_half*r)/(params.d_steps.xyz);
+	vec3 rd = (exp(exponent)+exp(exponent/3.0))*r*cosb_half/(8.0*PI*params.d_steps.xyz);//Integral molecule,  GAUSSIAN SIMILAR DIFFUSION PROFILE
+	//Integral denominator   F(a)/F(rd)  a=cosb * rd; or a=//cosb * cosb * rd;
+
+	res.r = vec3(rd.r, rd.r*cosb, rd.r*cosb * cosb);
+	res.g = vec3(rd.g, rd.g*cosb, rd.g*cosb * cosb);
+	res.b = vec3(rd.b, rd.b*cosb, rd.b*cosb * cosb);
+}
+
+vec2 PreintNormalize(vec3 inValue)
+{
+	vec2 mm = max(vec2(EPSILON, EPSILON), inValue.xx);
+	return inValue.yz/mm;
+}
+
+void main() 
+{
+	uvec3 id = gl_GlobalInvocationID.xyz; 
+    float w=params.texSize.z;
+	float h=params.texSize.w;
+	float curv=float((id.x+0.5f)/w);
+	
+	float r = 1.0/curv;
+	
+	vec3 res_r=vec3(0);
+	vec3 res_g=vec3(0);
+    vec3 res_b=vec3(0);
+    
+	//preintegrate range: ndotl ANGLE:0-PI
+	sResult rd_prev;
+	sResult rd;
+	CalcStep(r,0,rd_prev);
+
+	float istep_half = params.d_steps.w/2.0;
+
+    float x = params.d_steps.w;
+	while(x < PI)
+	{
+		CalcStep(r, x, rd);
+		res_r += (rd_prev.r+rd.r)*istep_half;//average between prev and now
+		res_g += (rd_prev.g+rd.g)*istep_half;
+		res_b += (rd_prev.b+rd.b)*istep_half;
+		rd_prev = rd;
+		x+=params.d_steps.w;
+	}
+	vec3 res;
+	vec2 rr = PreintNormalize(res_r);//x:SH1, y:SH2
+	vec2 gg = PreintNormalize(res_g);
+	vec2 bb = PreintNormalize(res_b);
+    imageStore(resultImage1, ivec2(gl_GlobalInvocationID.xy), vec4(rr.x,gg.x,bb.x, 1.0));
+	imageStore(resultImage2, ivec2(gl_GlobalInvocationID.xy), vec4(rr.y,gg.y,bb.y, 1.0));
+}
