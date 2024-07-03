@@ -546,6 +546,7 @@ public:
 	}
 
 	// Generate an irradiance cube map from the environment cube map
+    // https://learnopengl.com/PBR/IBL/Diffuse-irradiance == appproximate GI
 	void generateIrradianceCube()
 	{
 		auto tStart = std::chrono::high_resolution_clock::now();

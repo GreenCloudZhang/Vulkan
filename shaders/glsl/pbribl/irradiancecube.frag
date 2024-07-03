@@ -19,6 +19,7 @@ void main()
 	vec3 up = vec3(0.0, 1.0, 0.0);
 	vec3 right = normalize(cross(up, N));
 	up = cross(N, right);
+	//RIGHT UP N coordinate hemisphere samples
 
 	const float TWO_PI = PI * 2.0;
 	const float HALF_PI = PI * 0.5;

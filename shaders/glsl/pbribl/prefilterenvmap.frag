@@ -84,9 +84,9 @@ vec3 prefilterEnvMap(vec3 R, float roughness)
 			// Probability Distribution Function
 			float pdf = D_GGX(dotNH, roughness) * dotNH / (4.0 * dotVH) + 0.0001;
 			// Slid angle of current smple
-			float omegaS = 1.0 / (float(consts.numSamples) * pdf);
+			float omegaS = 1.0 / (float(consts.numSamples) * pdf);//real need pdf/perpixel
 			// Solid angle of 1 pixel across all cube faces
-			float omegaP = 4.0 * PI / (6.0 * envMapDim * envMapDim);
+			float omegaP = 4.0 * PI / (6.0 * envMapDim * envMapDim);//0 level pdf/perpixel
 			// Biased (+1.0) mip level for better result
 			float mipLevel = roughness == 0.0 ? 0.0 : max(0.5 * log2(omegaS / omegaP) + 1.0, 0.0f);
 			color += textureLod(samplerEnv, L, mipLevel).rgb * dotNL;

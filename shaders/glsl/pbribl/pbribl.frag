@@ -35,7 +35,10 @@ layout (location = 0) out vec4 outColor;
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO vec3(material.r, material.g, material.b)
 
-// From http://filmicgames.com/archives/75
+/////// From http://filmicgames.com/archives/75
+//Reinhard filmic tone mapping
+//https://www.indigorenderer.com/book/export/html/1196
+//https://64.github.io/tonemapping/
 vec3 Uncharted2Tonemap(vec3 x)
 {
 	float A = 0.15;
@@ -127,7 +130,7 @@ void main()
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, ALBEDO, metallic);
 
-	vec3 Lo = vec3(0.0);
+	vec3 Lo = vec3(0.0);//DIRECT SPECULAR
 	for(int i = 0; i < uboParams.lights.length(); i++) {
 		vec3 L = normalize(uboParams.lights[i].xyz - inWorldPos);
 		Lo += specularContribution(L, V, N, F0, metallic, roughness);
@@ -143,15 +146,16 @@ void main()
 	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
 
 	// Specular reflectance
-	vec3 specular = reflection * (F * brdf.x + brdf.y);
+	vec3 specular = reflection * (F * brdf.x + brdf.y);//INDIRECT SPECULAR
 
 	// Ambient part
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - metallic;	  
-	vec3 ambient = (kD * diffuse + specular);
+	vec3 ambient = (kD * diffuse + specular);//envCube INDIRECT DIFFUSE + envCube INDIRECT SPECULAR
 	
 	vec3 color = ambient + Lo;
 
+	//Reinhard tone mapping
 	// Tone mapping
 	color = Uncharted2Tonemap(color * uboParams.exposure);
 	color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
