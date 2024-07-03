@@ -158,6 +158,7 @@ set(EXAMPLES
 	shadowmappingcascade
 	specializationconstants
 	sphericalenvmapping
+	sphericalHarmonic
 	ssao
 	stencilbuffer
 	stochasticfilter
