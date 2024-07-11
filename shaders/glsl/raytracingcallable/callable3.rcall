@@ -6,6 +6,6 @@ layout(location = 0) callableDataInEXT vec3 outColor;
 void main()
 {
     // Generate a line pattern
-	vec2 pos = vec2(gl_LaunchIDEXT / 8);
+	vec2 pos = vec2(gl_LaunchIDEXT / 16);//8 interval width size
 	outColor = vec3(mod(pos.y, 2.0));
 }

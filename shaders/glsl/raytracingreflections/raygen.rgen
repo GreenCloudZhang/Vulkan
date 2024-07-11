@@ -47,11 +47,11 @@ void main()
 		if (rayPayload.distance < 0.0f) {
 			color += hitColor;
 			break;
-		} else if (rayPayload.reflector == 1.0f) {
+		} else if (rayPayload.reflector == 1.0f) {//color value = white
 			const vec4 hitPos = origin + direction * rayPayload.distance;
 			origin.xyz = hitPos.xyz + rayPayload.normal * 0.001f;
 			direction.xyz = reflect(direction.xyz, rayPayload.normal);
-		} else {
+		} else {//no reflector
 			color += hitColor;
 			break;
 		}

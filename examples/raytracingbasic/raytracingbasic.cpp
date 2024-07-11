@@ -264,11 +264,14 @@ public:
 		std::vector<Vertex> vertices = {
 			{ {  1.0f,  1.0f, 0.0f } },
 			{ { -1.0f,  1.0f, 0.0f } },
-			{ {  0.0f, -1.0f, 0.0f } }
+			{ {  0.0f, -1.0f, 0.0f } },
+			{ {  2.0f,  1.0f, 0.0f } },
+			{ {  0.0f,  1.0f, 0.0f } },
+			{ {  1.0f, -1.0f, 0.0f } }
 		};
 
 		// Setup indices
-		std::vector<uint32_t> indices = { 0, 1, 2 };
+		std::vector<uint32_t> indices = { 0, 1, 2, 3, 4, 5 };
 		indexCount = static_cast<uint32_t>(indices.size());
 
 		// Setup identity transform matrix
@@ -318,7 +321,7 @@ public:
 		accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 		accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 		accelerationStructureGeometry.geometry.triangles.vertexData = vertexBufferDeviceAddress;
-		accelerationStructureGeometry.geometry.triangles.maxVertex = 2;
+		accelerationStructureGeometry.geometry.triangles.maxVertex = 5;//VERTEX SIZE - 1
 		accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 		accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 		accelerationStructureGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
@@ -327,6 +330,7 @@ public:
 		accelerationStructureGeometry.geometry.triangles.transformData = transformBufferDeviceAddress;
 		
 		// Get size info
+		//GEOMETRY SIZE
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
 		accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 		accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
@@ -334,7 +338,7 @@ public:
 		accelerationStructureBuildGeometryInfo.geometryCount = 1;
 		accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 		
-		const uint32_t numTriangles = 1;
+		const uint32_t numTriangles = 2;//###botom primitives num must be equal to real num, while top level don't need.###
 		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 		accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 		vkGetAccelerationStructureBuildSizesKHR(

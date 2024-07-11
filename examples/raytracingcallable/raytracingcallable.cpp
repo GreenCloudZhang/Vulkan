@@ -94,12 +94,13 @@ public:
 		std::vector<uint32_t> indices = { 0, 1, 2 };
 		uint32_t indexCount = static_cast<uint32_t>(indices.size());
 
+		//one geometry for one
 		// Setup transform matrices for the geometries in the bottom level AS
 		std::vector<VkTransformMatrixKHR> transformMatrices(objectCount);
 		for (uint32_t i = 0; i < objectCount; i++) {
 			transformMatrices[i] = {
-				1.0f, 0.0f, 0.0f, (float)i * 3.0f - 3.0f,
-				0.0f, 1.0f, 0.0f, 0.0f,
+				1.0f, 0.0f, 0.0f, 0.0f,//(float)i * 3.0f - 3.0f,
+				0.0f, 1.0f, 0.0f, (float)i * 3.0f - 3.0f,
 				0.0f, 0.0f, 1.0f, 0.0f
 			};
 		}
@@ -152,6 +153,7 @@ public:
 			accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 			accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 			accelerationStructureGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
+			//transformBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(transformBuffer.buffer) + static_cast<uint32_t>(i) * sizeof(VkTransformMatrixKHR);
 			accelerationStructureGeometry.geometry.triangles.transformData = transformBufferDeviceAddress;
 			accelerationStructureGeometries.push_back(accelerationStructureGeometry);
 			geometryCounts.push_back(1);
@@ -468,7 +470,7 @@ public:
 		rayTracingPipelineCI.pStages = shaderStages.data();
 		rayTracingPipelineCI.groupCount = static_cast<uint32_t>(shaderGroups.size());
 		rayTracingPipelineCI.pGroups = shaderGroups.data();
-		rayTracingPipelineCI.maxPipelineRayRecursionDepth = std::min(uint32_t(2), rayTracingPipelineProperties.maxRayRecursionDepth);
+		rayTracingPipelineCI.maxPipelineRayRecursionDepth = std::min(uint32_t(2), rayTracingPipelineProperties.maxRayRecursionDepth);//###excute shader depth, rchit->rcall=>depth=2
 		rayTracingPipelineCI.layout = pipelineLayout;
 		VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCI, nullptr, &pipeline));
 	}

@@ -38,7 +38,7 @@ Vertex unpack(uint index)
 {
 	// Unpack the vertices from the SSBO using the glTF vertex structure
 	// The multiplier is the size of the vertex divided by four float components (=16 bytes)
-	const int m = ubo.vertexSize / 16;
+	const int m = ubo.vertexSize / 16;//m=6
 
 	vec4 d0 = vertices.v[m * index + 0];
 	vec4 d1 = vertices.v[m * index + 1];

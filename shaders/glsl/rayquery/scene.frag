@@ -26,12 +26,17 @@ void main()
 
 	rayQueryEXT rayQuery;
 	rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, inWorldPos, 0.01, L, 1000.0);
+	//rayQueryInitializeEXT(rq, accStruct, gl_RayFlagsTerminateOnFirstHitEXT, cullMask, origin, tMin, direction, tMax);
 
 	// Traverse the acceleration structure and store information about the first intersection (if any)
 	rayQueryProceedEXT(rayQuery);
 
 	// If the intersection has hit a triangle, the fragment is shadowed
-	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT ) {
-		outFragColor *= 0.1;
+	//if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT ) {
+	//	outFragColor *= 0.1;
+	//}
+	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+        //in shadow
+	    outFragColor *= 0.1;
 	}
 }

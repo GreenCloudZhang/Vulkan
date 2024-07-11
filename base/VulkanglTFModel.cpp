@@ -578,6 +578,8 @@ VkVertexInputAttributeDescription vkglTF::Vertex::inputAttributeDescription(uint
 			return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal) });
 		case VertexComponent::UV:
 			return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv) });
+		case VertexComponent::UV2:
+			return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, uv2) });
 		case VertexComponent::Color:
 			return VkVertexInputAttributeDescription({ location, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, color) });
 		case VertexComponent::Tangent:
@@ -816,6 +818,7 @@ void vkglTF::Model::loadNode(vkglTF::Node *parent, const tinygltf::Node &node, u
 				const float *bufferPos = nullptr;
 				const float *bufferNormals = nullptr;
 				const float *bufferTexCoords = nullptr;
+				const float* bufferTexCoords2 = nullptr;
 				const float* bufferColors = nullptr;
 				const float *bufferTangents = nullptr;
 				uint32_t numColorComponents;
@@ -841,6 +844,12 @@ void vkglTF::Model::loadNode(vkglTF::Node *parent, const tinygltf::Node &node, u
 					const tinygltf::Accessor &uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_0")->second];
 					const tinygltf::BufferView &uvView = model.bufferViews[uvAccessor.bufferView];
 					bufferTexCoords = reinterpret_cast<const float *>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
+				}
+
+				if (primitive.attributes.find("TEXCOORD_1") != primitive.attributes.end()) {
+					const tinygltf::Accessor& uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
+					const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
+					bufferTexCoords2 = reinterpret_cast<const float*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
 				}
 
 				if (primitive.attributes.find("COLOR_0") != primitive.attributes.end())
@@ -882,6 +891,7 @@ void vkglTF::Model::loadNode(vkglTF::Node *parent, const tinygltf::Node &node, u
 					vert.pos = glm::vec4(glm::make_vec3(&bufferPos[v * 3]), 1.0f);
 					vert.normal = glm::normalize(glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * 3]) : glm::vec3(0.0f)));
 					vert.uv = bufferTexCoords ? glm::make_vec2(&bufferTexCoords[v * 2]) : glm::vec3(0.0f);
+					vert.uv2 = bufferTexCoords2 ? glm::vec4(bufferTexCoords2[v * 2], bufferTexCoords2[v * 2 + 1], 0, 0) : glm::vec4(0.0f);
 					if (bufferColors) {
 						switch (numColorComponents) {
 							case 3: 
@@ -1264,6 +1274,7 @@ void vkglTF::Model::loadFromFile(std::string filename, vks::VulkanDevice *device
 		}
 	}
 
+	auto t = sizeof(float);
 	size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
 	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
 	indices.count = static_cast<uint32_t>(indexBuffer.size());

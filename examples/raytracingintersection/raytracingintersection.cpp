@@ -297,6 +297,7 @@ public:
 			\-----------/
 
 	*/
+	//intersection shader配合aabb的rchit一起使用
 	void createShaderBindingTables() {
 		const uint32_t handleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
 		const uint32_t handleSizeAligned = vks::tools::alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);

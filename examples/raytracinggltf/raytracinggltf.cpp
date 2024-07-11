@@ -123,9 +123,15 @@ public:
 			if (node->mesh) {
 				for (auto primitive : node->mesh->primitives) {
 					if (primitive->indexCount > 0) {
-						VkTransformMatrixKHR transformMatrix{};
+						/*VkTransformMatrixKHR transformMatrix{};
 						auto m = glm::mat3x4(glm::transpose(node->getMatrix()));
-						memcpy(&transformMatrix, (void*)&m, sizeof(glm::mat3x4));
+						memcpy(&transformMatrix, (void*)&m, sizeof(glm::mat3x4));*/
+
+						//ANOTHER WAY: premultiply while loading asset.
+						VkTransformMatrixKHR transformMatrix = {
+							1.0f, 0.0f, 0.0f, 0.0f,
+							0.0f, 1.0f, 0.0f, 0.0f,
+							0.0f, 0.0f, 1.0f, 0.0f };
 						transformMatrices.push_back(transformMatrix);
 					}
 				}
@@ -158,7 +164,7 @@ public:
 
 						vertexBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(model.vertices.buffer);// +primitive->firstVertex * sizeof(vkglTF::Vertex);
 						indexBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(model.indices.buffer) + primitive->firstIndex * sizeof(uint32_t);
-						transformBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(transformBuffer.buffer) + static_cast<uint32_t>(geometryNodes.size()) * sizeof(VkTransformMatrixKHR);
+						transformBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(transformBuffer.buffer) +static_cast<uint32_t>(geometryNodes.size()) * sizeof(VkTransformMatrixKHR);
 
 						VkAccelerationStructureGeometryKHR geometry{};
 						geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -166,7 +172,7 @@ public:
 						geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 						geometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 						geometry.geometry.triangles.vertexData = vertexBufferDeviceAddress;
-						geometry.geometry.triangles.maxVertex = model.vertices.count;
+						geometry.geometry.triangles.maxVertex = model.vertices.count-1;
 						//geometry.geometry.triangles.maxVertex = primitive->vertexCount;
 						geometry.geometry.triangles.vertexStride = sizeof(vkglTF::Vertex);
 						geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
@@ -311,7 +317,7 @@ public:
 		accelerationStructureBuildGeometryInfo.geometryCount = 1;
 		accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 
-		uint32_t primitive_count = 1;
+		uint32_t primitive_count = 1;//TOP LEVEL CAN BE ONE
 
 		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 		accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
@@ -742,7 +748,8 @@ public:
 	void loadAssets()
 	{
 		vkglTF::memoryPropertyFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		model.loadFromFile(getAssetPath() + "models/FlightHelmet/glTF/FlightHelmet.gltf", vulkanDevice, queue);
+		const uint32_t glTFLoadingFlags = vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::PreMultiplyVertexColors;
+		model.loadFromFile(getAssetPath() + "models/FlightHelmet/glTF/FlightHelmet.gltf", vulkanDevice, queue, glTFLoadingFlags);
 	}
 
 	void prepare()

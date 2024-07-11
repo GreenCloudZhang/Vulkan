@@ -69,6 +69,8 @@ void main()
 	shadowed = true;  
 	// Trace shadow ray and offset indices to match shadow hit/miss shader group indices
 	traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
+	//1 MEANS shaowmiss index=1 deviceaddress + stride * index
+	//2 MEANS payload location = 2 ,that means "layout(location = 2) rayPayloadEXT bool shadowed;"
 	if (shadowed) {
 		hitValue *= 0.3;
 	}

@@ -1,0 +1,1 @@
+C:\VulkanSDK\1.3.280.0\Bin\glslang.exe -V --glsl-version 460 --target-env spirv1.4 closesthit.rchit -o closesthit.rchit.spv

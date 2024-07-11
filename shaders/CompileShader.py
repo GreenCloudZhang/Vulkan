@@ -15,7 +15,9 @@ def main():
     glslangPath = "C:\\VulkanSDK\\1.3.280.0\\Bin\\glslang.exe"
     if(os.path.isfile(glslFilePath)):
         print("Exist glslFilePath")
-        args = ['-V', '--glsl-version','450',glslFilePath, '-o', glslFilePath+".spv"]
+        args = ['-V', '--glsl-version','460',glslFilePath, '-o', glslFilePath+".spv"]
+        if(sys.argv[1]=="task" or sys.argv[1]=="mesh" or sys.argv[1]=="rgen" or sys.argv[1]=="rmiss" or sys.argv[1]=="rchit" or sys.argv[1]=="rcall"or sys.argv[1]=="rahit"):
+            args = ['-V', '--glsl-version','460', '--target-env', 'spirv1.4', glslFilePath, '-o', glslFilePath+".spv"]
         process=subprocess.run([glslangPath]+args,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         print("GLSLOutput:",process.stdout.decode('utf-8'))
         print("GLSLErrors:",process.stderr.decode('utf-8'))

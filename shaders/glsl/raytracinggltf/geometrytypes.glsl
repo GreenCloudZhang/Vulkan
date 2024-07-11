@@ -34,8 +34,9 @@ Triangle unpackTriangle(uint index, int vertexSize) {
 	// glm::vec3 normal;
 	// glm::vec2 uv;
 	// ...
+	//3+3+2+2+4+4+4+4
 	for (uint i = 0; i < 3; i++) {
-		const uint offset = indices.i[triIndex + i] * 6;
+		const uint offset = uint(indices.i[triIndex + i]*7);
 		vec4 d0 = vertices.v[offset + 0]; // pos.xyz, n.x
 		vec4 d1 = vertices.v[offset + 1]; // n.yz, uv.xy
 		tri.vertices[i].pos = d0.xyz;

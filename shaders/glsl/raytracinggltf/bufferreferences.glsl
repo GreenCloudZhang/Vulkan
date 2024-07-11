@@ -4,6 +4,7 @@
  *
  */
 
+ //API CALL Order == buffer with flags VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 layout(push_constant) uniform BufferReferences {
 	uint64_t vertices;
 	uint64_t indices;

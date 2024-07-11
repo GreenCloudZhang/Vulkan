@@ -572,6 +572,7 @@ public:
 			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline);
 			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, 1, &descriptorSet, 0, 0);
 
+			//#####It's ok while not push constant#####
 			struct BufferReferences {
 				uint64_t vertices;
 				uint64_t indices;
@@ -583,6 +584,7 @@ public:
 			// We set the buffer references for the mesh to be rendered using a push constant
 			// If we wanted to render multiple objecets this would make it very easy to access their vertex and index buffers
 			vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(uint64_t) * 2, &bufferReferences);
+			//#####It's ok while not push constant#####
 
 			VkStridedDeviceAddressRegionKHR emptySbtEntry = {};
 			vkCmdTraceRaysKHR(
