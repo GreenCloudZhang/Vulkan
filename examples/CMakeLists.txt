@@ -111,6 +111,7 @@ set(EXAMPLES
 	figureman
 	gears
 	geometryshader
+	gi
 	gltfloading
 	gltfscenerendering
 	gltfskinning

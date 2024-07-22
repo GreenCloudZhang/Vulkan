@@ -53,6 +53,7 @@ namespace vkglTF
 	extern VkDescriptorSetLayout descriptorSetLayoutUbo;
 	extern VkMemoryPropertyFlags memoryPropertyFlags;
 	extern uint32_t descriptorBindingFlags;
+	extern bool isCalcLMUV;
 
 	struct Node;
 
@@ -284,6 +285,27 @@ namespace vkglTF
 		std::vector<Material> materials;
 		std::vector<Animation> animations;
 
+		//link triangles
+		struct Face
+		{
+			struct Triangle {
+				int side;
+				glm::vec3 normal;
+				float distance;
+				std::vector<int> vertices;//vertex id
+			};
+			std::vector<Triangle> triangles;
+		};
+		//one box - one face
+		struct Box {
+			float x, y, w, h;//x,y minCoord
+			float x2, y2;//x2 y2 oldPos
+			int face;//face id
+			bool swap;
+		};
+		std::vector<std::vector<Face>> faces;//each node has lots of faces;
+		std::vector<std::vector<Box>> boxes;//calc coordinates and records as boxes
+
 		struct Dimensions {
 			glm::vec3 min = glm::vec3(FLT_MAX);
 			glm::vec3 max = glm::vec3(-FLT_MAX);
@@ -313,5 +335,6 @@ namespace vkglTF
 		Node* findNode(Node* parent, uint32_t index);
 		Node* nodeFromIndex(uint32_t index);
 		void prepareNodeDescriptor(vkglTF::Node* node, VkDescriptorSetLayout descriptorSetLayout);
+		void calcLightmapUV();
 	};
 }

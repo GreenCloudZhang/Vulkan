@@ -1,0 +1,89 @@
+// Copyright 2023 Sascha Willems
+
+// Shader is looseley based on the ray tracing coding session by Inigo Quilez (www.iquilezles.org)
+
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (binding = 0, rgba8) uniform writeonly image2D resultImage;
+
+layout (binding = 1) uniform UBO
+{
+	int vertexNum;
+	int primitivesNum;
+}ubo;
+
+
+layout(binding = 2) buffer VeticesIn {
+	vec4 vertices[ ];
+};
+
+layout(binding = 3) buffer IndicesIn {
+	uint indices[ ];
+};
+
+float crossVec2(vec2 v1, vec2 v2)
+{
+	return v1.x*v2.y-v1.y*v2.x;
+}
+
+bool inTriangle(vec2 uv, vec2 uv0, vec2 uv1, vec2 uv2)
+{
+	vec2 p0 = uv-uv0;
+	vec2 p1 = uv-uv1;
+	vec2 p2 = uv-uv2;
+	float t0 = crossVec2(p0, p1);
+	float t1 = crossVec2(p1, p2);
+	float t2 = crossVec2(p2, p0);
+	return t0*t1>=0 && t0*t2>=0;
+}
+
+void main()
+{
+	ivec2 dim = imageSize(resultImage);
+	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
+	uv.y = 1.0 - uv.y;
+	
+	vec3 finalColor = vec3(0,0,0);
+	const int m = 7;
+	//vec3 pos;
+	//vec3 normal;
+	//vec2 uv;
+	//vec4 color;
+	//vec4 joint0;
+	//vec4 weight0;
+	//vec4 tangent;
+	//vec4 uv2;
+    for(int i=0;i<ubo.primitivesNum;i++)
+	{
+		uint i0 = indices[i*3+0];
+		uint i1 = indices[i*3+1];
+		uint i2 = indices[i*3+2];
+
+		//parse uv and color
+        vec4 d00 = vertices[i0*7+0];
+        vec4 d01 = vertices[i0*7+1];
+        vec4 d02 = vertices[i0*7+2];
+        vec2 uv0 = d01.zw;
+		vec4 color0 = d02.xyzw;
+
+		vec4 d10 = vertices[i1*7+0];
+        vec4 d11 = vertices[i1*7+1];
+        vec4 d12 = vertices[i1*7+2];
+        vec2 uv1 = d11.zw;
+		vec4 color1 = d12.xyzw;
+
+		vec4 d20 = vertices[i2*7+0];
+        vec4 d21 = vertices[i2*7+1];
+        vec4 d22 = vertices[i2*7+2];
+        vec2 uv2 = d21.zw;
+		vec4 color2 = d22.xyzw;
+
+		if(inTriangle(uv, uv0, uv1, uv2))
+		{
+            finalColor = (color0.xyz+color1.xyz+color2.xyz)/3.0;
+			break;
+		}
+	}
+	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 1.0));
+}

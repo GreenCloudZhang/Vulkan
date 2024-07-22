@@ -18,11 +18,17 @@
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 
 #include "VulkanglTFModel.h"
+#include <cmath>
+#include <algorithm>
 
 VkDescriptorSetLayout vkglTF::descriptorSetLayoutImage = VK_NULL_HANDLE;
 VkDescriptorSetLayout vkglTF::descriptorSetLayoutUbo = VK_NULL_HANDLE;
 VkMemoryPropertyFlags vkglTF::memoryPropertyFlags = 0;
 uint32_t vkglTF::descriptorBindingFlags = vkglTF::DescriptorBindingFlags::ImageBaseColor;
+bool vkglTF::isCalcLMUV = false;
+
+#define LIGHTMAP_SCALE (1.0/32.0)
+#define LIGHTMAP_PADDING 0.002
 
 /*
 	We use a custom image loading function with tinyglTF, so we can do custom stuff loading ktx textures
@@ -1272,6 +1278,199 @@ void vkglTF::Model::loadFromFile(std::string filename, vks::VulkanDevice *device
 			std::cout << "Required extension: " << extension;
 			metallicRoughnessWorkflow = false;
 		}
+	}
+
+	//calcLMUV  only triangles
+	if (isCalcLMUV)
+	{
+		auto FindFaceSameVertex = [&](Face face, int i) {
+			for (auto& t : face.triangles)
+			{
+				if (t.vertices[0] == i)return true;
+				if (t.vertices[1] == i)return true;
+				if (t.vertices[2] == i)return true;
+				return false;
+			}
+			};
+		//build faces & boxes
+		for (Node* node : linearNodes) {
+			if (node->mesh) {
+				for (Primitive* primitive : node->mesh->primitives) {
+					std::vector<Face> tempFaces;
+					std::vector<Box> tempBoxes;
+					int trianglesNum = primitive->indexCount / 3;
+					for (uint32_t i = 0; i < trianglesNum; i++) 
+					{
+						//calc faces
+						int vi0 = indexBuffer[primitive->firstIndex + i * 3 + 0];
+						int vi1 = indexBuffer[primitive->firstIndex + i * 3 + 1];
+						int vi2 = indexBuffer[primitive->firstIndex + i * 3 + 2];
+						Vertex& v0 = vertexBuffer[vi0];
+						Vertex& v1 = vertexBuffer[vi1];
+						Vertex& v2 = vertexBuffer[vi2];
+						Face::Triangle tTriangle;
+						tTriangle.normal = glm::normalize(glm::cross(v2.pos - v0.pos, v1.pos - v0.pos));
+						tTriangle.distance = glm::dot(tTriangle.normal, v0.pos);
+						tTriangle.vertices.resize(3);
+						tTriangle.vertices[0] = vi0;
+						tTriangle.vertices[1] = vi1;
+						tTriangle.vertices[2] = vi2;
+						if (tTriangle.normal[1] * tTriangle.normal[1] < tTriangle.normal[0] * tTriangle.normal[0] &&
+							tTriangle.normal[2] * tTriangle.normal[2] < tTriangle.normal[0] * tTriangle.normal[0]) {
+							tTriangle.side = 0;//max n-x
+						}
+						else if (tTriangle.normal[0] * tTriangle.normal[0] < tTriangle.normal[1] * tTriangle.normal[1] &&
+							tTriangle.normal[2] * tTriangle.normal[2] < tTriangle.normal[1] * tTriangle.normal[1])
+						{
+							tTriangle.side = 1;//max n-y
+						}
+						else
+						{
+							tTriangle.side = 2;//max n-z
+						}
+
+						int faceId = -1;
+						bool findFace = false;
+						for (int fi = 0; fi < tempFaces.size(); fi++)
+						{
+							if (FindFaceSameVertex(tempFaces[fi], vi0) ||
+								FindFaceSameVertex(tempFaces[fi], vi1) ||
+								FindFaceSameVertex(tempFaces[fi], vi2))
+							{
+								findFace = true;
+								faceId = fi;
+								break;
+							}
+						}
+						if (findFace)
+						{
+							tempFaces[faceId].triangles.push_back(tTriangle);
+						}
+						else
+						{
+							Face tFace;
+							tFace.triangles.push_back(tTriangle);
+							tempFaces.push_back(std::move(tFace));
+						}
+					}
+					int faceNum = tempFaces.size();
+					//calc boxes
+					for (uint32_t i = 0; i < faceNum; i++) {
+						if (i == 5)
+						{
+							std::cout << "";
+						}
+						Box tBox;
+						tBox.face = i;
+						tBox.swap = false;
+						int tNum = tempFaces[i].triangles.size();
+						int dealVertNum = 0;
+						for (int tTid = 0; tTid < tNum; tTid++)
+						{
+							for (int vi = 0; vi < 3; vi++)
+							{
+								Vertex& v = vertexBuffer[tempFaces[i].triangles[tTid].vertices[vi]];
+								v.uv2[0] = v.pos[tempFaces[i].triangles[tTid].side == 0 ? 1 : 0] * LIGHTMAP_SCALE;
+								v.uv2[1] = v.pos[tempFaces[i].triangles[tTid].side == 2 ? 1 : 2] * LIGHTMAP_SCALE;
+								if (dealVertNum == 0)
+								{
+									tBox.x = v.uv2[0];
+									tBox.x2 = v.uv2[0];
+									tBox.y = v.uv2[1];
+									tBox.y2 = v.uv2[1];
+								}
+								else
+								{
+									tBox.x = std::min(tBox.x, v.uv2[0]);
+									tBox.x2 = std::max(tBox.x2, v.uv2[0]);
+									tBox.y = std::min(tBox.y, v.uv2[1]);
+									tBox.y2 = std::max(tBox.y2, v.uv2[1]);
+								}
+								dealVertNum++;
+							}
+						}
+						//ensure y dir length is larger than x dir
+						if ((tBox.x2 - tBox.x) > (tBox.y2 - tBox.y))
+						{
+							for (int tTid = 0; tTid < tNum; tTid++)
+							{
+								for (int vi = 0; vi < 3; vi++)
+								{
+									Vertex& v = vertexBuffer[tempFaces[i].triangles[tTid].vertices[vi]];
+									auto temp = v.uv2[0];
+									v.uv2[0] = v.uv2[1];
+									v.uv2[1] = temp;
+								}
+							}
+							auto temp = tBox.x;
+							tBox.x = tBox.y;
+							tBox.y = temp;
+							temp = tBox.x2;
+							tBox.x2 = tBox.y2;
+							tBox.y2 = temp;
+							tBox.swap = true;
+						}
+						tBox.w = tBox.x2 - tBox.x;
+						tBox.h = tBox.y2 - tBox.y;
+						if (tBox.h > 1.0)
+						{
+							std::cout << "h attension!" << std::endl;
+						}
+						tempBoxes.push_back(tBox);
+					}//face loop to generate box
+					//x dir larger to shorter...
+					std::sort(tempBoxes.begin(), tempBoxes.end(), [&](const Box& lhs, const Box& rhs) { return lhs.w > rhs.w; });
+					float padding = LIGHTMAP_PADDING;
+					auto x = padding, y = padding;
+					auto rowSize = 0.0f;
+					auto rowHeight = 1.0f;
+					//Adjust box position according to padding, 2D box Packing:larger first,y first
+					for (int i = 0; i < faceNum; i++)
+					{
+						int tNum = tempFaces[tempBoxes[i].face].triangles.size();
+						if (y + tempBoxes[i].h > rowHeight - padding)
+						{
+							y = padding;
+							x += rowSize + padding;
+							rowSize = 0.0;
+						}
+						rowSize = std::max(rowSize, tempBoxes[i].w);//y dir maybe n boxes, rowSize records the first of these n boxes, for x start of next y dir boxes
+						float offset[2] = { x - tempBoxes[i].x, y - tempBoxes[i].y };//offset for move box start at (x,y);	
+						std::vector<int> dealIds;
+						for (int tTid = 0; tTid < tNum; tTid++)
+						{
+							for (int vi = 0; vi < 3; vi++)
+							{
+								auto& vIds = tempFaces[tempBoxes[i].face].triangles[tTid].vertices;
+								if (std::find(dealIds.begin(), dealIds.end(), vIds[vi]) == dealIds.end())
+								{
+									Vertex& v = vertexBuffer[vIds[vi]];
+									v.uv2.x += offset[0];
+									v.uv2.y += offset[1];
+									dealIds.push_back(vIds[vi]);
+									if (v.uv2.y > 1)
+									{
+										std::cout << "attension!" << std::endl;
+									}
+								}		
+							}
+						}
+						tempBoxes[i].x2 = tempBoxes[i].x;
+						tempBoxes[i].y2 = tempBoxes[i].y;//old start racord;
+						tempBoxes[i].x = x;
+						tempBoxes[i].y = y;
+						y += tempBoxes[i].h + padding;//change y for packing box in y dir;
+					}
+
+					////CPU CALC LIGHTMAP VALUE ACCORDING BOXES COORDINATES
+
+					faces.push_back(std::move(tempFaces));
+					boxes.push_back(std::move(tempBoxes));
+				}
+			}
+		}
+
+		//build box map
 	}
 
 	auto t = sizeof(float);
